@@ -897,8 +897,8 @@ begin
       begin
         data.buffDivide := length(buffer[RequestNumber xor $1]);
         //Высчитываем значения порога для дальнейшего анализа массива.
-        data.porog := data.SignalPorogCalk(data.buffDivide, buffer,RequestNumber);
-        data.modC := true;
+        data.porog := data.SignalPorogCalk(Round(data.buffDivide/10), buffer,RequestNumber); //!!! Round(data.buffDivide/10)
+        //data.modC := true;
       end;
 
      { for m:=1 to 3000 do
@@ -913,10 +913,11 @@ begin
 
 
       //проверяем, что сигнал Орбиты подан.
-      if data.porog>100 then
+      if data.porog>200 then
       begin
         //Проверяем выбранную информативность
         indJ := 0;
+        form2.Hide;
         //M16
         if infNum = 0 then
         begin
@@ -951,7 +952,7 @@ begin
       else
       begin
         //CloseFile(textTestFile);
-        data.graphFlagFastP := false;
+        {data.graphFlagFastP := false;
 
         //Application.ProcessMessages;
         sleep(50);
@@ -966,8 +967,11 @@ begin
         end;
         //завершим все работающие циклы
         flagEnd:=true;
-        wait(100);
+        wait(100); }
+
+        data.modC := false;
         form2.show;
+
       end;
 
       // были ли ошибки или пользователь прервал ввод данных?
@@ -4869,9 +4873,9 @@ begin
     end;}
   end;
 
-  //проверяем что в буфере АЦП порог данных не соответствует 100 и меньше.
+  //проверяем что в буфере АЦП порог данных не соответствует 200 и меньше.
   //нет сигнала
-  if SignalPorogCalk(buffDivide, buffer,RequestNumber)<=100 then
+  if SignalPorogCalk(round(buffDivide/10), buffer,RequestNumber)<=200 then   ///!!! round(buffDivide/10)
   begin
     outMF(127);
     //Form1.Memo1.Lines.Add('11');
