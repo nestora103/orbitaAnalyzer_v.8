@@ -619,6 +619,9 @@ var
 
   //опис. массив дл€ параметров адресов
   masElemParam: array of channelOutParam;
+
+  arrAddrOk:array of string;
+
   //счетчик хранит максим. число адреосв ќрбиты
   iCountMax: integer;
   //кол. аналоговых каналов
@@ -738,6 +741,51 @@ begin
   begin
     sleep(3);
     application.ProcessMessages;
+  end;
+end;
+//==============================================================================
+
+
+//==============================================================================
+//
+//==============================================================================
+procedure GetAddrList;
+var
+  maxAdrNum:Integer;
+  iAdr:integer;
+  adrCount:integer;
+begin
+  arrAddrOk:=nil;
+  iAdr := 0;
+  maxAdrNum:=form1.OrbitaAddresMemo.Lines.Count - 1;
+  for adrCount := 0 to maxAdrNum  do
+  begin
+    if form1.OrbitaAddresMemo.Lines.Strings[adrCount]<>'' then
+    begin
+      //исключаем пустые строки
+      //выделим пам€ть на элемент массива параметров
+      setlength(arrAddrOk, iAdr  + 1);
+      arrAddrOk[iAdr]:=form1.OrbitaAddresMemo.Lines.Strings[adrCount];
+      inc(iAdr);
+    end;
+  end;
+end;
+//==============================================================================
+
+//==============================================================================
+//
+//==============================================================================
+procedure SetOrbAddr;
+var
+  iAdr:Integer;
+  maxAdrNum:integer;
+begin
+  //очищаем список адресов
+  form1.OrbitaAddresMemo.Clear;
+  maxAdrNum:=Length(arrAddrOk);
+  for iAdr:=0 to maxAdrNum do
+  begin
+    form1.OrbitaAddresMemo.Lines.Add(arrAddrOk[iAdr]);
   end;
 end;
 //==============================================================================
@@ -2524,6 +2572,10 @@ begin
   acumBus := 0;
   //перезагрузим акт. адреса.
   form1.OrbitaAddresMemo.Lines.LoadFromFile(propStrPath);
+  //ѕолучение правильного списка адресов
+  GetAddrList;
+  //”становка списка правильных адресов
+  SetOrbAddr; 
   //отключение масштабировани€
   form1.gistSlowAnl.AllowZoom:=false;
   form1.gistSlowAnl.AllowPanning:=pmNone;
@@ -2711,6 +2763,10 @@ begin
       form1.saveAdrB.Enabled:=true;
       //загрузка файла адресов в рабочий список адресов
       form1.OrbitaAddresMemo.Lines.LoadFromFile(propStrPath);
+      //ѕолучение правильного списка адресов
+      GetAddrList;
+      //”становка списка правильных адресов
+      SetOrbAddr;
     end;
   end
   else
@@ -4727,7 +4783,7 @@ begin
     begin
       //адрес
       //выделим пам€ть на элемент массива параметров
-      setlength(masElemParam, adrCount + 1);
+      setlength(masElemParam, iAdr  + 1);
       data.AdressAnalyser(form1.OrbitaAddresMemo.Lines.Strings[adrCount], iAdr);
       inc(iAdr);
     end;
@@ -6269,6 +6325,10 @@ begin
   data := Tdata.CreateData;
   //перезагрузим акт. адреса.
   form1.OrbitaAddresMemo.Lines.LoadFromFile(propStrPath);
+  //ѕолучение правильного списка адресов
+  GetAddrList;
+  //”становка списка правильных адресов
+  SetOrbAddr;
   form1.gistSlowAnl.AllowZoom:=true;
   form1.gistSlowAnl.AllowPanning:=pmBoth;
   //проверка правильности рабочих адресов
@@ -6464,6 +6524,11 @@ begin
     propIniFile.Free;
     //заполним список актуальными адресами
     form1.OrbitaAddresMemo.Lines.LoadFromFile(propStrPath);
+    //ѕолучение правильного списка адресов
+    GetAddrList;
+    //”становка списка правильных адресов
+    SetOrbAddr;
+
     form1.startReadACP.Enabled := true;
     form1.startReadTlmB.Enabled := true;
     form1.saveAdrB.Enabled:=true;
