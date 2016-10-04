@@ -1,6 +1,6 @@
 object Form1: TForm1
-  Left = 371
-  Top = 212
+  Left = 247
+  Top = 173
   BorderIcons = [biSystemMenu, biMinimize]
   BorderStyle = bsSingle
   Caption = #1057#1087#1077#1094#1080#1072#1083#1100#1085#1086#1077' '#1087#1088#1086#1075#1088#1072#1084#1084#1085#1086#1077' '#1086#1073#1077#1089#1087#1077#1095#1077#1085#1080#1077' '#1086#1073#1088#1072#1073#1086#1090#1082#1080' '#1080' '#1088#1077#1075#1080#1089#1090#1088#1072#1094#1080#1080
@@ -155,7 +155,7 @@ object Form1: TForm1
     Top = 0
     Width = 903
     Height = 585
-    ActivePage = TabSheet2
+    ActivePage = TabSheet1
     TabOrder = 0
     object TabSheet1: TTabSheet
       Caption = #1052#1077#1076#1083'.'

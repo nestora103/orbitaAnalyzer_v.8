@@ -4722,10 +4722,15 @@ begin
   maxAdrNum:=form1.OrbitaAddresMemo.Lines.Count - 1;
   for adrCount := 0 to maxAdrNum  do
   begin
-    //выделим пам€ть на элемент массива параметров
-    setlength(masElemParam, adrCount + 1);
-    data.AdressAnalyser(form1.OrbitaAddresMemo.Lines.Strings[adrCount], iAdr);
-    inc(iAdr);
+    //при пробеге по адресам провер€ем адрес это или логический разделитель
+    if  form1.OrbitaAddresMemo.Lines.Strings[adrCount]<>'---' then
+    begin
+      //адрес
+      //выделим пам€ть на элемент массива параметров
+      setlength(masElemParam, adrCount + 1);
+      data.AdressAnalyser(form1.OrbitaAddresMemo.Lines.Strings[adrCount], iAdr);
+      inc(iAdr);
+    end;
   end;
   //запомнием максимальное количество адресов
   iCountMax := iAdr;
@@ -5130,6 +5135,13 @@ begin
     str := '';
     str := form1.OrbitaAddresMemo.Lines.Strings[i][1] +
       form1.OrbitaAddresMemo.Lines.Strings[i][2]+form1.OrbitaAddresMemo.Lines.Strings[i][3];
+    //проверим а не логический ли это разделитель
+    if str = '---' then
+    begin
+      //перейдем на следующую итерацию цикла
+      Continue;
+    end;
+
     if ((str = 'M16')or(str = 'M08')or(str = 'M04')or(str = 'M02')or(str = 'M01')) then
     begin
       //выставим размерность массива группы от выбранной информативности
@@ -5285,9 +5297,12 @@ begin
     end
     else
     begin
-      bool := false;
-      ShowMessage('«агруженные адреса не соотв. выбранной информативности');
-      break;
+      if  str<>'---' then
+      begin
+        bool := false;
+        ShowMessage('«агруженные адреса не соотв. выбранной информативности');
+        break;
+      end;
     end;
   end;
   result := bool;
