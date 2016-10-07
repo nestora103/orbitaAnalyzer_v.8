@@ -6800,7 +6800,7 @@ begin
   begin
     data.graphFlagTempP := true;
     //form1.dia.Canvas.MoveTo(form1.dia.Width-1051,form1.dia.Height-33);
-    data.chanelIndexTemp := ValueIndex;
+    data.chanelIndexTemp := ValueIndex+ acumAnalog + acumContact;
   end;
 end;
 
