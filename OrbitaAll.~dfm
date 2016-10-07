@@ -1,6 +1,6 @@
 object Form1: TForm1
-  Left = 247
-  Top = 173
+  Left = 418
+  Top = 269
   BorderIcons = [biSystemMenu, biMinimize]
   BorderStyle = bsSingle
   Caption = #1057#1087#1077#1094#1080#1072#1083#1100#1085#1086#1077' '#1087#1088#1086#1075#1088#1072#1084#1084#1085#1086#1077' '#1086#1073#1077#1089#1087#1077#1095#1077#1085#1080#1077' '#1086#1073#1088#1072#1073#1086#1090#1082#1080' '#1080' '#1088#1077#1075#1080#1089#1090#1088#1072#1094#1080#1080
@@ -155,7 +155,7 @@ object Form1: TForm1
     Top = 0
     Width = 903
     Height = 585
-    ActivePage = TabSheet1
+    ActivePage = ts3
     TabOrder = 0
     object TabSheet1: TTabSheet
       Caption = #1052#1077#1076#1083'.'
@@ -275,9 +275,9 @@ object Form1: TForm1
         TabOrder = 3
         object upGistSlowSize: TButton
           Left = 864
-          Top = 24
+          Top = 40
           Width = 33
-          Height = 65
+          Height = 57
           Caption = '+'
           Font.Charset = DEFAULT_CHARSET
           Font.Color = clWindowText
@@ -290,9 +290,9 @@ object Form1: TForm1
         end
         object downGistSlowSize: TButton
           Left = 864
-          Top = 88
+          Top = 96
           Width = 33
-          Height = 65
+          Height = 57
           Caption = '-'
           Font.Charset = DEFAULT_CHARSET
           Font.Color = clWindowText
@@ -405,7 +405,7 @@ object Form1: TForm1
           Font.Color = clWindowText
           Font.Height = -40
           Font.Name = 'MS Sans Serif'
-          Font.Style = []
+          Font.Style = [fsBold]
           ParentFont = False
           TabOrder = 0
           OnClick = upGistFastSizeClick
@@ -420,7 +420,7 @@ object Form1: TForm1
           Font.Color = clWindowText
           Font.Height = -40
           Font.Name = 'MS Sans Serif'
-          Font.Style = []
+          Font.Style = [fsBold]
           ParentFont = False
           TabOrder = 1
           OnClick = downGistFastSizeClick
@@ -502,6 +502,121 @@ object Form1: TForm1
         View3D = False
         TabOrder = 1
         object Series6: TLineSeries
+          Marks.ArrowLength = 8
+          Marks.Visible = False
+          SeriesColor = 10485760
+          Pointer.InflateMargins = True
+          Pointer.Style = psRectangle
+          Pointer.Visible = False
+          XValues.DateTime = False
+          XValues.Name = 'X'
+          XValues.Multiplier = 1.000000000000000000
+          XValues.Order = loAscending
+          YValues.DateTime = False
+          YValues.Name = 'Y'
+          YValues.Multiplier = 1.000000000000000000
+          YValues.Order = loNone
+        end
+      end
+    end
+    object ts3: TTabSheet
+      Caption = #1058#1077#1084#1087'.'
+      ImageIndex = 3
+      object tempDia: TChart
+        Left = 0
+        Top = 112
+        Width = 900
+        Height = 217
+        BackWall.Brush.Color = clWhite
+        BackWall.Brush.Style = bsClear
+        MarginRight = 6
+        Title.Font.Charset = RUSSIAN_CHARSET
+        Title.Font.Color = clBlue
+        Title.Font.Height = -16
+        Title.Font.Name = 'Arial'
+        Title.Font.Style = [fsBold]
+        Title.Text.Strings = (
+          #1044#1080#1072#1075#1088#1072#1084#1084#1072' T')
+        LeftAxis.Automatic = False
+        LeftAxis.AutomaticMaximum = False
+        LeftAxis.AutomaticMinimum = False
+        LeftAxis.Maximum = 1023.000000000000000000
+        Legend.Visible = False
+        View3D = False
+        TabOrder = 0
+        object Series7: TBarSeries
+          Marks.ArrowLength = 20
+          Marks.Visible = True
+          SeriesColor = 10485760
+          OnClick = Series7Click
+          BarStyle = bsRectGradient
+          XValues.DateTime = False
+          XValues.Name = 'X'
+          XValues.Multiplier = 1.000000000000000000
+          XValues.Order = loAscending
+          YValues.DateTime = False
+          YValues.Name = 'Bar'
+          YValues.Multiplier = 1.000000000000000000
+          YValues.Order = loNone
+        end
+      end
+      object tempGist: TChart
+        Left = 0
+        Top = 328
+        Width = 897
+        Height = 234
+        BackWall.Brush.Color = clWhite
+        BackWall.Brush.Style = bsClear
+        MarginRight = 6
+        Title.Font.Charset = DEFAULT_CHARSET
+        Title.Font.Color = clBlue
+        Title.Font.Height = -16
+        Title.Font.Name = 'Arial'
+        Title.Font.Style = [fsBold]
+        Title.Text.Strings = (
+          #1043#1080#1089#1090#1086#1075#1088#1072#1084#1084#1072' '#1058)
+        BottomAxis.Automatic = False
+        BottomAxis.AutomaticMaximum = False
+        BottomAxis.AutomaticMinimum = False
+        BottomAxis.Maximum = 300.000000000000000000
+        LeftAxis.Automatic = False
+        LeftAxis.AutomaticMaximum = False
+        LeftAxis.AutomaticMinimum = False
+        LeftAxis.Maximum = 1023.000000000000000000
+        Legend.Visible = False
+        View3D = False
+        TabOrder = 1
+        object upGistTempSize: TButton
+          Left = 856
+          Top = 64
+          Width = 33
+          Height = 57
+          Caption = '+'
+          Font.Charset = DEFAULT_CHARSET
+          Font.Color = clWindowText
+          Font.Height = -40
+          Font.Name = 'MS Sans Serif'
+          Font.Style = [fsBold]
+          ParentFont = False
+          TabOrder = 0
+          OnClick = upGistTempSizeClick
+        end
+        object downGistTempSize: TButton
+          Left = 856
+          Top = 120
+          Width = 33
+          Height = 57
+          Caption = '-'
+          Font.Charset = DEFAULT_CHARSET
+          Font.Color = clWindowText
+          Font.Height = -40
+          Font.Name = 'MS Sans Serif'
+          Font.Style = [fsBold]
+          ParentFont = False
+          TabOrder = 1
+          OnClick = downGistTempSizeClick
+        end
+        object lnsrsSeries8: TLineSeries
           Marks.ArrowLength = 8
           Marks.Visible = False
           SeriesColor = 10485760

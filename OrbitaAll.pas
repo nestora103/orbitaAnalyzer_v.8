@@ -102,6 +102,13 @@ type
     gProgress2: TGauge;
     procentFalseMF1: TLabel;
     procentFalseMG: TLabel;
+    ts3: TTabSheet;
+    tempDia: TChart;
+    Series7: TBarSeries;
+    tempGist: TChart;
+    lnsrsSeries8: TLineSeries;
+    upGistTempSize: TButton;
+    downGistTempSize: TButton;
     procedure startReadACPClick(Sender: TObject);
     procedure FormClose(Sender: TObject; var Action: TCloseAction);
     procedure FormCreate(Sender: TObject);
@@ -130,6 +137,10 @@ type
     procedure Timer1Timer(Sender: TObject);
     procedure Button1Click(Sender: TObject);
     procedure tmrForTestOrbSignalTimer(Sender: TObject);
+    procedure Series7Click(Sender: TChartSeries; ValueIndex: Integer;
+      Button: TMouseButton; Shift: TShiftState; X, Y: Integer);
+    procedure upGistTempSizeClick(Sender: TObject);
+    procedure downGistTempSizeClick(Sender: TObject);
   private
     { Private declarations }
   public
@@ -369,6 +380,8 @@ type
 
     //вывод.аналоговые и контактные каналы
     graphFlagSlowP: boolean;
+    //вывод.температурные параметры
+    graphFlagTempP: boolean;
     //вывод. быстрые каналы
     graphFlagFastP: boolean;
     //вывод. БУС каналы
@@ -381,6 +394,9 @@ type
     //номер канала на гистограмме значения
     //которого будут выводится на график медл.
     chanelIndexSlow: integer;
+    //номер канала на гистограмме значения
+    //которого будут выводится на график медл.
+    chanelIndexTemp: integer;
     //номер канала на гистограмме значения которого
     //будут выводится на график быст.
     chanelIndexFast: integer;
@@ -390,6 +406,7 @@ type
     //счетчики для подсчета адресов аналоговых и контактных каналов
     analogAdrCount: integer;
     contactAdrCount: integer;
+    tempAdrCount:Integer;
     //bool:boolean;
 
     //----------------------------------- M08,04,02,01
@@ -482,6 +499,9 @@ type
       numBitOfValue: short; busTh: short; busAdr: short; var numOutPoint: short);
     //вывод на гистограмму аналоговые
     procedure OutToGistSlowAnl(firstPointValue: integer; outStep: integer;
+      masOutSize: integer; var numP: integer);
+    //вывод на гистограмму температурные
+    procedure OutToGistTemp(firstPointValue: integer; outStep: integer;
       masOutSize: integer; var numP: integer);
     //вывод на гистограмму быстрые
     procedure OutToGistFastParam(firstPointValue: integer; outStep: integer;
@@ -626,6 +646,8 @@ var
   iCountMax: integer;
   //кол. аналоговых каналов
   acumAnalog: integer;
+  //колич. температурных каналов
+  acumTemp:Integer;
   //кол. контактных
   acumContact: integer;
   //кол. быстрых
@@ -1094,10 +1116,12 @@ begin
   //Sleep(100);
   //после сброса очищаем все графики
   form1.diaSlowAnl.Series[0].Clear;
+  form1.gistSlowAnl.Series[0].Clear;
   form1.diaSlowCont.Series[0].Clear;
   form1.fastDia.Series[0].Clear;
   form1.fastGist.Series[0].Clear;
-  form1.gistSlowAnl.Series[0].Clear;
+  Form1.tempDia.Series[0].Clear;
+  Form1.tempGist.Series[0].Clear;
   //после окончательного сброса делаем доступным прием и чтение.
   form1.startReadACP.Enabled:=true;
   form1.startReadTlmB.Enabled:=true;
@@ -2555,8 +2579,7 @@ var
   intPointNum:integer;
 begin
   testOutFalg:=true;
-  form1.fastGist.AllowZoom:=false;
-  form1.fastGist.AllowPanning:=pmNone;
+
   //setlength(data.masFastVal, trunc(form1.fastGist.BottomAxis.Maximum)-2);
   //data.masFastVal:=nil;
   //intPointNum:=trunc(form1.fastGist.BottomAxis.Maximum);
@@ -2564,6 +2587,8 @@ begin
   //проиниц. счетчики для подсч. колич. каждого типа адресов
   //ам
   acumAnalog := 0;
+  //темп
+  acumTemp:=0;
   //ак
   acumContact := 0;
   //б
@@ -2579,6 +2604,12 @@ begin
   //отключение масштабирования
   form1.gistSlowAnl.AllowZoom:=false;
   form1.gistSlowAnl.AllowPanning:=pmNone;
+
+  form1.fastGist.AllowZoom:=false;
+  form1.fastGist.AllowPanning:=pmNone;
+
+  form1.tempGist.AllowZoom:=False;
+  form1.tempGist.AllowPanning:=pmNone;
   //проверим правильность адресов
   if (data.GenTestAdrCorrect) then
   begin
@@ -2838,10 +2869,13 @@ begin
   data.analogAdrCount := 0;
   //счетчик для подсчета количества контактных каналов
   data.contactAdrCount := 0;
+  //счетчик для подсчета количества аналоговых каналов
+  data.tempAdrCount := 0;
   //отчистка формы для предидущей группы
   form1.diaSlowAnl.Series[0].Clear;
   form1.diaSlowCont.Series[0].Clear;
   form1.fastDia.Series[0].Clear;
+  form1.tempDia.Series[0].Clear;
   //sleep(3);
   //последовательно разбираем строка за строкой адреса
   //Орбиты, вынимаем нужные значения и выводим на график
@@ -2880,6 +2914,7 @@ begin
   //флаг для вывода на гистограмму аналоговых и контактных (медленных каналов)
   graphFlagSlowP := false;
   graphFlagBusP := false;
+  graphFlagTempP := false;
 
   //если больше одной вкладки на странице то одной переменной мало
   numP := 0;
@@ -3075,11 +3110,19 @@ end;
 
 procedure TData.OutToGistGeneral;
 begin
-  //вывод на диаграмму для контактных и аналоговых
+  //вывод на график для контактных и аналоговых
   if (graphFlagSlowP) then
   begin
     OutToGistSlowAnl(masElemParam[chanelIndexSlow].numOutElemG,
       masElemParam[chanelIndexSlow].stepOutG,
+      {length(masGroup)}masGroupSize, data.numP);
+  end;
+
+  //вывод на график темпер. параметров
+  if (graphFlagTempP) then
+  begin
+    OutToGistTemp(masElemParam[chanelIndexTemp].numOutElemG,
+      masElemParam[chanelIndexTemp].stepOutG,
       {length(masGroup)}masGroupSize, data.numP);
   end;
 
@@ -3091,6 +3134,9 @@ begin
       masElemParam[chanelIndexFast].adressType, data.numPfast,
       masElemParam[chanelIndexFast].bitNumber);
   end;
+
+
+
 
   // вывод на диаграмму для БУС
   {if (graphFlagBusP) then
@@ -3482,6 +3528,9 @@ begin
     begin
       form1.TimerOutToDia.Enabled := false;
       data.graphFlagSlowP := false;
+
+      data.graphFlagFastP:= false;
+      data.graphFlagTempP:= false;
       break;
     end;
     //увелич. счетчик битов соб. слова Орбиты
@@ -3828,6 +3877,7 @@ var
   maxPointInAdr: integer;
   //переменная для вычисления смещения для аналоговых каналов
   offsetForYalkAnalog: short;
+  offsetForYalkTemp: short;
   offsetForYalkContact: short;
   offsetForYalkFastParamT22: short;
   offsetForYalkFastParamT21: short;
@@ -3845,6 +3895,7 @@ begin
   //вывод производится только если вкладка аналоговых и контактных каналов активна
   if form1.PageControl1.ActivePageIndex = 0 then
   begin
+
     //вывод для аналоговых каналов   0
     if typeOfAddres = 0 then
     begin
@@ -3868,6 +3919,7 @@ begin
       //счетчик подсчета количества аналоговых адресов
       inc(analogAdrCount);
     end;
+
     //вывод для контактных каналов     1
     if typeOfAddres = 1 then
     begin
@@ -3888,9 +3940,11 @@ begin
       //if numChanel-20=8 then form1.gistCont.Series[0].Clear;
     end;
   end;
+
   //вывод для быстрых параметров
   if form1.PageControl1.ActivePageIndex = 1 then
   begin
+
     //вывод для быстрых параметров   T22
     if typeOfAddres = 2 then
     begin
@@ -3906,7 +3960,7 @@ begin
       try
         form1.fastDia.Series[0].AddXY(numChanel, fastValT22 {rrr});
       except
-        ShowMessage('111');
+        //ShowMessage('111');
       end;
       inc(numOutPoint);
       if numOutPoint > maxPointInAdr then
@@ -3914,6 +3968,7 @@ begin
         numOutPoint := 1;
       end;
     end;
+
     //вывод для быстрых параметров   T21
     if typeOfAddres = 3 then
     begin
@@ -3928,7 +3983,7 @@ begin
       try
         form1.fastDia.Series[0].AddXY(numChanel, fastValT21);
       except
-        ShowMessage('222');
+        //ShowMessage('222');
       end;
       inc(numOutPoint);
       if numOutPoint > maxPointInAdr then
@@ -3948,13 +4003,47 @@ begin
       try
         form1.fastDia.Series[0].AddXY(numChanel, fastValT24);
       except
-        ShowMessage('111');
+        //ShowMessage('111');
       end;
       inc(numOutPoint);
       if numOutPoint > maxPointInAdr then
       begin
         numOutPoint := 1;
       end;
+    end;
+  end;
+
+  //вывод для БУС
+  if form1.PageControl1.ActivePageIndex = 2 then
+  begin
+  end;
+
+
+  //вывод для температурных параметров
+  if form1.PageControl1.ActivePageIndex = 3 then
+  begin
+    //вывод для температурных каналов   7
+    if typeOfAddres = 7 then
+    begin
+      //вывод первой точки в массиве firstPointValue для текущего адреса
+      //необходимо учитывать смещение для отображения за 1 проход адреса 1 точки
+      //вычисление смещения, для каждого типа адреса будет свое смещение
+      offsetForYalkTemp := outStep * (numOutPoint - 1);
+      //вычисление номера текущей выводимой точки
+      nPoint := firstPointValue + offsetForYalkTemp;
+      //так как массив группы с 0
+      nPoint := nPoint{ - 1};
+      //вывод на диа
+      form1.tempDia.Series[0].AddXY(numChanel, masGroup[nPoint] shr 1);
+      //увеличение счетчика выводимой точки адреса
+      inc(numOutPoint);
+      //проверяем не вышли ли мы за максимальный диапазон для текущего адреса
+      if numOutPoint > maxPointInAdr then
+      begin
+        numOutPoint := 1;
+      end;
+      //счетчик подсчета количества аналоговых адресов
+      inc(tempAdrCount);
     end;
   end;
 end;
@@ -3994,6 +4083,44 @@ begin
   end;
 end;
 //==============================================================================
+
+//==============================================================================
+//Вывод на гистограмму температурных
+//==============================================================================
+
+procedure TData.OutToGistTemp(firstPointValue: integer; outStep: integer;
+  masOutSize: integer; var numP: integer);
+var
+  iPoint: integer;
+begin
+  //выводим на гист когда активна вкладка аналог. медл.
+  if (form1.PageControl1.ActivePageIndex = 3) then
+  begin
+    iPoint := firstPointValue;
+    iPoint := iPoint{ - 1};
+    while iPoint <= masOutSize-1 do
+    begin
+      if (numP < form1.tempGist.BottomAxis.Maximum - 10) then
+        form1.tempGist.Series[0].AddXY(numP, masGroup[iPoint] shr 1);
+      inc(numP);
+      if (numP = form1.tempGist.BottomAxis.Maximum - 10) then
+      begin
+        form1.upGistTempSize.Enabled := false;
+      end;
+      if (numP >= form1.tempGist.BottomAxis.Maximum) then
+      begin
+        numP := 0;
+        form1.lnsrsSeries8.Clear;
+        form1.upGistTempSize.Enabled := true;
+        form1.downGistTempSize.Enabled := true;
+      end;
+      iPoint := iPoint + outStep;
+    end;
+  end;
+end;
+//==============================================================================
+
+
 
 //==============================================================================
 //Вывод на гистограмму быстрых параметров
@@ -4473,6 +4600,7 @@ begin
       //М есть.
       flagM := true;
     end;
+
     if (flagM) then
     begin
       //M16
@@ -4665,6 +4793,7 @@ begin
             //Используется только для контактных.
             masElemParam[imasElemParam].bitNumber := 0;
           end;
+
           if ((adressString[iGraph + 1] = '0')and(adressString[iGraph + 2] = '5')) then
           begin
             //T05. Контактный 1.
@@ -4695,6 +4824,12 @@ begin
           begin
             //T25. БУС. Для проверки
             masElemParam[imasElemParam].adressType := 6;
+          end;
+
+          if ((adressString[iGraph + 1] = '1')and(adressString[iGraph + 2] = '1')) then
+          begin
+            //T11. Температурный
+            masElemParam[imasElemParam].adressType := 7;
           end;
         end;
         //Поиск P(p)
@@ -4830,6 +4965,11 @@ begin
       begin
         //БУС
         inc(acumBus);
+      end;
+      7:
+      begin
+        //температурные
+        inc(acumTemp);
       end;
     end;
     inc(adrCount);
@@ -5943,6 +6083,9 @@ begin
     begin
       form1.TimerOutToDia.Enabled := false;
       data.graphFlagSlowP := false;
+
+      data.graphFlagTempP := false;
+      data.graphFlagFastP := false;
       break;
     end;
     inc(wordCount);
@@ -5953,7 +6096,6 @@ end;
 //=============================================================================
 //
 //=============================================================================
-
 function TData.ReadFromFIFObuf: integer;
 begin
   result := fifoMas[fifoLevelRead];
@@ -6309,12 +6451,20 @@ end;
 
 procedure TForm1.startReadTlmBClick(Sender: TObject);
 begin
+  //разрешение масштабирования графиков
   form1.fastGist.AllowZoom:=true;
   form1.fastGist.AllowPanning:=pmBoth;
+  form1.gistSlowAnl.AllowZoom:=true;
+  form1.gistSlowAnl.AllowPanning:=pmBoth;
+  form1.tempGist.AllowZoom:=True;
+  form1.tempGist.AllowPanning:=pmBoth;
+
   testOutFalg:=true;
   //проиниц. счетчики для подсч. колич. каждого типа адресов
   //ам
   acumAnalog := 0;
+  //темп.
+  acumTemp:=0;
   //ак
   acumContact := 0;
   //б
@@ -6329,8 +6479,7 @@ begin
   GetAddrList;
   //Установка списка правильных адресов
   SetOrbAddr;
-  form1.gistSlowAnl.AllowZoom:=true;
-  form1.gistSlowAnl.AllowPanning:=pmBoth;
+
   //проверка правильности рабочих адресов
   if data.GenTestAdrCorrect then
   begin
@@ -6366,7 +6515,7 @@ begin
     //data.masFastVal := nil; //!!!
     //wait(1);
     //учитываем количество аналоговых и контактных адресов до этого
-    data.chanelIndexFast := ValueIndex + acumAnalog + acumContact;
+    data.chanelIndexFast := ValueIndex + acumAnalog + acumContact+acumTemp;
     //перестроим координатную ось в зависимости от типа
     //T22
     if masElemParam[data.chanelIndexFast].adressType = 2 then
@@ -6560,7 +6709,7 @@ begin
   end
   else
   begin
-    data.chanelIndexBus := ValueIndex+acumAnalog + acumContact+acumFast;
+    data.chanelIndexBus := ValueIndex+acumAnalog + acumContact+acumTemp+acumFast;
     data.graphFlagBusP := true;
   end;
 end;
@@ -6632,6 +6781,49 @@ begin
       //завершим приложение по человечески.
       Application.Terminate;
     end;
+  end;
+end;
+
+procedure TForm1.Series7Click(Sender: TChartSeries; ValueIndex: Integer;
+  Button: TMouseButton; Shift: TShiftState; X, Y: Integer);
+begin
+  //избегаем доступа к мемо. и в случае доступности
+  //мемо делаем его недоступным и наоборот
+  //form1.OrbitaAddresMemo.Enabled:= not form1.OrbitaAddresMemo.Enabled;
+  //form1.Memo1.Enabled:= not form1.Memo1.Enabled;
+  if (data.graphFlagTempP) then
+  begin
+    form1.tempGist.Series[0].Clear;
+    data.graphFlagTempP := false;
+  end
+  else
+  begin
+    data.graphFlagTempP := true;
+    //form1.dia.Canvas.MoveTo(form1.dia.Width-1051,form1.dia.Height-33);
+    data.chanelIndexTemp := ValueIndex;
+  end;
+end;
+
+procedure TForm1.upGistTempSizeClick(Sender: TObject);
+begin
+  form1.downGistTempSize.Enabled := true;
+  if form1.tempGist.BottomAxis.Maximum <=form1.tempGist.BottomAxis.Minimum + 20 then
+  begin
+    form1.upGistTempSize.Enabled := false
+  end
+  else
+  begin
+    form1.tempGist.BottomAxis.Maximum := form1.tempGist.BottomAxis.Maximum - 10;
+  end;
+end;
+
+procedure TForm1.downGistTempSizeClick(Sender: TObject);
+begin
+  form1.upGistTempSize.Enabled := true;
+  form1.tempGist.BottomAxis.Maximum := form1.tempGist.BottomAxis.Maximum + 10;
+  if form1.tempGist.BottomAxis.Maximum >= 700 then
+  begin
+    form1.downGistTempSize.Enabled := false;
   end;
 end;
 
