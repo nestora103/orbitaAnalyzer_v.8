@@ -292,6 +292,14 @@ type
     numAdrInBusPocket2: short;
     //!!! номер текущей точки для вывода на гистограмму
     numOutPoint: short;
+    //флаг для определения перескакивания через группы
+    flagGroup:Boolean;
+    //флаг для определения перескакивания через циклы
+    flagCikl:Boolean;
+    //массив номеров групп для выборки
+    arrNumGroup:array of SHORT;
+    //массив номеров циклов для выборки
+    arrNumCikl:array of SHORT;
   end;
 
   Tdata = class(TObject)
@@ -340,6 +348,7 @@ type
     codStr: word;
     //счетчик номера слова Орбиты
     wordNum: integer;
+    groupNum:integer;
     //счетчик групп
     groupWordCount: integer;
     //счетчик фраз
@@ -493,10 +502,34 @@ type
     procedure CollectMarkGroup;
     //procedure AddValueInMasDiaValue(numFOut:integer;step:integer;
       //masGSize:integer;var numP:integer);
-    //вывод на гистограмму
-    procedure OutToDia(firstPointValue: integer; outStep: integer;
+    //вывод на диаграмму
+    procedure outToDia(firstPointValue: integer; outStep: integer;
       masOutSize: integer; var numChanel: integer; typeOfAddres: short;
-      numBitOfValue: short; busTh: short; busAdr: short; var numOutPoint: short);
+      numBitOfValue: short; busTh: short; busAdr: short; var numOutPoint: short;
+      flagGroup:Boolean;flagCikl:Boolean);
+    //вывод на диаграмму аналоговые
+    procedure outToDiaAnl(outStep:integer;var numOutPoint:short;
+        firstPointValue:integer;var numChanel: integer;maxPointInAdr:integer);
+    //вывод на диаграмму контактные
+    procedure outToDiaCont(outStep: integer;var numOutPoint: short;
+        firstPointValue: integer;var numChanel: integer;numBitOfValue: short;
+          maxPointInAdr:integer);
+    //вывод на диаграмму быстрые T22
+    procedure outToDiaFastT22(outStep:integer;var numOutPoint:short;
+        firstPointValue:integer;var numChanel:integer;numBitOfValue:short;
+          maxPointInAdr:integer);
+    //вывод на диаграмму быстрые T21
+    procedure outToDiaFastT21(outStep:integer;var numOutPoint:short;
+        firstPointValue:integer;var numChanel:integer;numBitOfValue:short;
+          maxPointInAdr:integer);
+    //вывод на диаграмму быстрые T24
+    procedure outToDiaFastT24(outStep:integer;var numOutPoint:short;
+        firstPointValue:integer;var numChanel:integer;numBitOfValue:short;
+          maxPointInAdr:integer);
+    //вывод на диаграмму температруные
+    procedure outToDiaTemp(outStep:integer;var numOutPoint:short;
+        firstPointValue:integer;var numChanel:integer;numBitOfValue:short;
+          maxPointInAdr:integer);
     //вывод на гистограмму аналоговые
     procedure OutToGistSlowAnl(firstPointValue: integer; outStep: integer;
       masOutSize: integer; var numP: integer);
@@ -2881,13 +2914,14 @@ begin
   //Орбиты, вынимаем нужные значения и выводим на график
   while orbAdrCount <= iCountMax - 1 do // iCountMax-1
   begin
-    data.OutToDia(masElemParam[orbAdrCount].numOutElemG,
+    data.outToDia(masElemParam[orbAdrCount].numOutElemG,
       masElemParam[orbAdrCount].stepOutG, {length(masGroup)}masGroupSize, //Остановка11
       orbAdrCount, masElemParam[orbAdrCount].adressType,
       masElemParam[orbAdrCount].bitNumber,
       masElemParam[orbAdrCount].numBusThread,
       masElemParam[orbAdrCount].adrBus,
-      masElemParam[orbAdrCount].numOutPoint);
+      masElemParam[orbAdrCount].numOutPoint,
+      masElemParam[orbAdrCount].flagGroup,masElemParam[orbAdrCount].flagCikl);
     inc(orbAdrCount);
   end;
   form1.TimerOutToDia.Enabled := false;
@@ -2906,6 +2940,9 @@ begin
   countForMG:=0;
   countErrorMG:=0;
   countEvenFraseMGToMG:=0;
+  groupNum:=1;
+
+  groupWordCount:=1; //!!
 
   countForMF:=0;
   countErrorMF:=0;
@@ -3318,7 +3355,7 @@ procedure TData.FillBitInWord;
 begin
   //считываем значение из кольц. буфера согласно счетчику чтения
   current := Read;
-  //строка в которую собираем 12 разрядное слово
+  //переменная в которую собираем 12 разрядное слово
   if current = 1 then
   begin
     codStr := (codStr shl 1) or 1;
@@ -3354,6 +3391,7 @@ begin
   begin
     flSinxC := true;
   end;
+
   //цикл разбора данных по 12 бит
   while iBit <= bitSizeWord do
   begin
@@ -3377,6 +3415,26 @@ begin
         //проверяем что до этого нашли 128 фразу.
         if (flagOutFraseNum) then
         begin
+
+          //Form1.Memo1.Lines.Add('#слова '+intToStr(wordNum)+' #фразы '+intToStr(fraseNum)+
+          //'#группы '+intToStr(groupWordCount));
+          //поиск маркера кадра
+          //1 в 1 бите 1 слова 16 фразы 1 группы
+          if ((wordNum = 1)and(fraseNum=16)and(groupNum=1))then
+          begin
+            if ((codStr and 1) = 1) then
+            begin
+              //маркер кадра найден
+              bufNumGroup:=0;
+              
+            end
+            else
+            begin
+              //маркер кадра не найден
+            end;
+          end;
+
+
           {if fraseNum=126 then
            begin
             SaveBitToLog('Фраза 126:'+codStr);
@@ -3384,7 +3442,7 @@ begin
           //SaveBitToLog('Фраза №'+IntToStr(fraseNum)+' ');
           if fraseNum = 1 then
           begin
-            //нумеруем с 0 т.к массив группы с 0
+            //нумеруем с 1 т.к массив группы с 1
             groupWordCount := {0}1;
             //разрешаем запись в массив группы
             startWriteMasGroup := true;
@@ -3407,23 +3465,30 @@ begin
           if ((markerGroup = 114{112}) or (markerGroup = 141)) then
           //нашли маркер
           begin
-            if data.fraseNum <> 128 then
+            if fraseNum <> 128 then
             begin
-              if data.flagL = true then
+              if flagL = true then
               begin
-                data.fraseNum := 128;
+                fraseNum := 128;
               end;
-              data.flagL := true;
+              flagL := true;
             end;
-            if data.fraseNum = 128 then
+            if fraseNum = 128 then
             begin
-              data.flagL := false;
+              flagL := false;
+
               //---------------------------
-              if data.markerGroup = 114{112} then
+              if markerGroup = 114{112} then
               //нашли маркер группы
               begin
                 //Form1.Memo1.Lines.Add(IntToStr(countEvenFraseMGToMG)+' МГ'); //TO-DO <><><>
                 Inc(countForMG);
+                Inc(groupNum);
+                if groupNum=33 then
+                begin
+                  groupNum:=1;
+                end;
+
                 //+1 МГ
                 if countEvenFraseMGToMG<>64 then
                 begin
@@ -3445,14 +3510,16 @@ begin
                 //разрешаем запись в массив группы
                 //data.startWriteMasGroup:=true;
               end;
+
               //----------------------------
               //цикл
               //----------------------------
-              if data.markerGroup = 141 then
+              if markerGroup = 141 then
               //нашли маркер цикла
               begin
                 //Form1.Memo1.Lines.Add(IntToStr(countEvenFraseMGToMG)+' МЦ');
                 countEvenFraseMGToMG:=0;
+                groupNum:=32;
                 //SaveBitToLog('Номер группы '+'32');
                 flBeg := false;
                 if (tlm.flagWriteTLM) then
@@ -3461,9 +3528,9 @@ begin
                 end;
               end;
               //----------------------------
-              data.markerGroup := 0;
+              markerGroup := 0;
               //выставление флага вывода номера группы
-              data.flagOutFraseNum := true;
+              flagOutFraseNum := true;
             end;
           end
           //====
@@ -3475,21 +3542,22 @@ begin
         end;
 
         //----------------------------------
-        inc(data.myFraseNum);
+        inc(myFraseNum);
         //проверяем нумерацию фраз,
         //для того чтобы не выйти за границы.
         //Моя внутреняя нумерация.
-        if data.myFraseNum = 129 then
+        if myFraseNum = 129 then
         begin
-          data.myFraseNum := 1;
+          myFraseNum := 1;
         end;
-        inc(data.fraseNum);
+        inc(fraseNum);
         //проверяем нумерацию фраз,
         //для того чтобы не выйти за границы.
         //Нумерация для вывода.
-        if data.fraseNum = 129 then
+        if fraseNum = 129 then
         begin
-          data.fraseNum := 1;
+          fraseNum := 1;
+          //groupWordCount := {0}1;
         end;
       end;
 
@@ -3510,6 +3578,8 @@ begin
         // орбитовские слова с 0 по 2047. счетчик 2048
         if groupWordCount = {length(masGroup)}masGroupSize+1 then
         begin
+          //Form1.Memo1.Lines.Add();
+
           OutDate;
         end;
       end;
@@ -3524,13 +3594,13 @@ begin
     end;
 
     //в случаем принуд. оконч. работы с АЦП выйти из выполнения
-    if flagEnd then
+    if (flagEnd) then
     begin
       form1.TimerOutToDia.Enabled := false;
-      data.graphFlagSlowP := false;
+      graphFlagSlowP := false;
 
-      data.graphFlagFastP:= false;
-      data.graphFlagTempP:= false;
+      graphFlagFastP:= false;
+      graphFlagTempP:= false;
       break;
     end;
     //увелич. счетчик битов соб. слова Орбиты
@@ -3539,6 +3609,7 @@ begin
     begin
       iBit := 1;
     end;
+
   end;
 end;
 
@@ -3855,33 +3926,206 @@ begin
 end;
 //==============================================================================
 
-//=============================================================================
-//Вывод на гистограмму
-//=============================================================================
+//==============================================================================
+//Вывод медленных аналоговых каналов на диаграмму
+//==============================================================================
+procedure TData.outToDiaAnl(outStep:integer;var numOutPoint:short;
+  firstPointValue:integer;var numChanel: integer;maxPointInAdr:integer);
+var
+  //переменная для вычисления смещения для аналоговых каналов
+  offsetForYalkAnalog: short;
+  nPoint: integer;
+begin
+  //вывод первой точки в массиве firstPointValue для текущего адреса
+  //необходимо учитывать смещение для отображения за 1 проход адреса 1 точки
+  //вычисление смещения, для каждого типа адреса будет свое смещение
+  offsetForYalkAnalog := outStep * (numOutPoint - 1);
+  //вычисление номера текущей выводимой точки
+  nPoint := firstPointValue + offsetForYalkAnalog;
+  //так как массив группы с 0
+  nPoint := nPoint{ - 1};
+  //вывод на диа
+  form1.diaSlowAnl.Series[0].AddXY(numChanel, masGroup[nPoint] shr 1);
+  //увеличение счетчика выводимой точки адреса
+  inc(numOutPoint);
+  //проверяем не вышли ли мы за максимальный диапазон для текущего адреса
+  if numOutPoint > maxPointInAdr then
+  begin
+    numOutPoint := 1;
+  end;
+  //счетчик подсчета количества аналоговых адресов
+  inc(analogAdrCount);
+end;
+//==============================================================================
 
-procedure TData.OutToDia(firstPointValue: integer;outStep: integer;
-  masOutSize: integer; var numChanel: integer;typeOfAddres: short;
-  numBitOfValue: short; busTh: short; busAdr: short;var numOutPoint: short);
+//==============================================================================
+//Вывод медленных контактных каналов на диаграмму
+//==============================================================================
+procedure TData.outToDiaCont(outStep: integer;var numOutPoint: short;
+  firstPointValue: integer;var numChanel: integer;numBitOfValue: short;maxPointInAdr:integer);
+var
+  nPoint: integer;
+  offsetForYalkContact: short;
+begin
+  offsetForYalkContact := outStep * (numOutPoint - 1);
+  nPoint := firstPointValue + offsetForYalkContact;
+  //так как массив группы с 0
+  nPoint := nPoint {- 1};
+  contVal := OutputValueForBit(masGroup[nPoint], numBitOfValue);
+  form1.diaSlowCont.Series[0].AddXY(numChanel - analogAdrCount, contVal);
+  inc(numOutPoint);
+  if numOutPoint > maxPointInAdr then
+  begin
+    numOutPoint := 1;
+  end;
+  //счетчик подсчета количества контактных адресов
+  inc(contactAdrCount);
+  //SaveBitToLog(IntToStr(numChanel-20));
+  //if numChanel-20=8 then form1.gistCont.Series[0].Clear;
+end;
+//==============================================================================
+
+//==============================================================================
+//Вывод быстрых каналов Т21 на диаграмму
+//==============================================================================
+procedure TData.outToDiaFastT21(outStep:integer;var numOutPoint:short;
+  firstPointValue:integer;var numChanel:integer;numBitOfValue:short;maxPointInAdr:integer);
+var
+  nPoint: integer;
+  //аккумулятор для быстрых значений T21
+  fastValT21: integer;
+  offsetForYalkFastParamT21: short;
+begin
+  //вычисление смещения для вынимания каждый раз следующей
+  //точки для данного анализируемого адреса
+  //смещение в записи этого адреса будет запоминатся
+  offsetForYalkFastParamT21 := outStep * (numOutPoint - 1);
+  nPoint := firstPointValue + offsetForYalkFastParamT21;
+  //так как массив группы с 0
+  nPoint := nPoint {- 1};
+  fastValT21 := masGroup[nPoint] shr 3; //8 разрядов
+  try
+    form1.fastDia.Series[0].AddXY(numChanel, fastValT21);
+  except
+    //ShowMessage('222');
+  end;
+  inc(numOutPoint);
+  if numOutPoint > maxPointInAdr then
+  begin
+    numOutPoint := 1;
+  end;
+end;
+//==============================================================================
+
+//==============================================================================
+//Вывод быстрых каналов Т22 на диаграмму
+//==============================================================================
+procedure TData.outToDiaFastT22(outStep:integer;var numOutPoint:short;
+  firstPointValue:integer;var numChanel:integer;numBitOfValue:short;maxPointInAdr:integer);
 var
   nPoint: integer;
   //аккумулятор для быстрых значений T22
   fastValT22: integer;
-  //аккумулятор для быстрых значений T21
-  fastValT21: integer;
+  offsetForYalkFastParamT22: short;
+begin
+  //вычисление смещения для вынимания каждый раз следующей
+  //точки для данного анализируемого адреса
+  //смещение в записи этого адреса будет запоминатся
+  offsetForYalkFastParamT22 := outStep * (numOutPoint - 1);
+  nPoint := firstPointValue + offsetForYalkFastParamT22;
+  //так как массив группы с 0
+  nPoint := nPoint{ - 1};
+  //собираем и выводим первое слово T22
+  fastValT22 := BuildFastValueT22(masGroupAll[nPoint], numBitOfValue);
+  try
+    form1.fastDia.Series[0].AddXY(numChanel, fastValT22 {rrr});
+  except
+    //ShowMessage('111');
+  end;
+  inc(numOutPoint);
+  if numOutPoint > maxPointInAdr then
+  begin
+    numOutPoint := 1;
+  end;
+end;
+//==============================================================================
+
+//==============================================================================
+//Вывод быстрых каналов Т24 на диаграмму
+//==============================================================================
+procedure TData.outToDiaFastT24(outStep:integer;var numOutPoint:short;
+  firstPointValue:integer;var numChanel:integer;numBitOfValue:short;maxPointInAdr:integer);
+var
+  nPoint: integer;
   //аккумулятор для быстрых значений T24
   fastValT24: integer;
+  offsetForYalkFastParamT24: short;
+begin
+  offsetForYalkFastParamT24 := outStep * (numOutPoint - 1);
+  nPoint := firstPointValue + offsetForYalkFastParamT24;
+  nPoint := nPoint {- 1};
+  //form1.Memo1.Lines.Add(intToStr(nPoint));
+  fastValT24 := BuildFastValueT24(masGroupAll[nPoint], numBitOfValue);
+  try
+    form1.fastDia.Series[0].AddXY(numChanel, fastValT24);
+  except
+    //ShowMessage('111');
+  end;
+  inc(numOutPoint);
+  if numOutPoint > maxPointInAdr then
+  begin
+    numOutPoint := 1;
+  end;
+end;
+//==============================================================================
+
+//==============================================================================
+//Вывод температурных каналов на диаграмму
+//==============================================================================
+procedure TData.outToDiaTemp(outStep:integer;var numOutPoint:short;
+  firstPointValue:integer;var numChanel:integer;numBitOfValue:short;maxPointInAdr:integer);
+var
+  nPoint: integer;
+  offsetForYalkTemp: short;
+begin
+  //вывод первой точки в массиве firstPointValue для текущего адреса
+  //необходимо учитывать смещение для отображения за 1 проход адреса 1 точки
+  //вычисление смещения, для каждого типа адреса будет свое смещение
+  offsetForYalkTemp := outStep * (numOutPoint - 1);
+  //вычисление номера текущей выводимой точки
+  nPoint := firstPointValue + offsetForYalkTemp;
+  //так как массив группы с 0
+  nPoint := nPoint{ - 1};
+  //вывод на диа
+  form1.Memo1.Lines.Add(IntToStr(groupNum));
+  form1.tempDia.Series[0].AddXY(numChanel, masGroup[nPoint] shr 1);
+  //увеличение счетчика выводимой точки адреса
+  inc(numOutPoint);
+  //проверяем не вышли ли мы за максимальный диапазон для текущего адреса
+  if numOutPoint > maxPointInAdr then
+  begin
+    numOutPoint := 1;
+  end;
+  //счетчик подсчета количества аналоговых адресов
+  inc(tempAdrCount);
+end;
+//==============================================================================
+
+
+//=============================================================================
+//Вывод на гистограмму
+//=============================================================================
+procedure TData.outToDia(firstPointValue: integer;outStep: integer;
+  masOutSize: integer; var numChanel: integer;typeOfAddres: short;
+  numBitOfValue: short; busTh: short; busAdr: short;var numOutPoint: short;
+  flagGroup:Boolean;flagCikl:Boolean);
+var
+  nPoint: integer;
   //переменная для вычисления количества
   //точек для каждого нового приходящего адреса
   //переменная вспомогательная и нужна для организации
   //цикличности вывода точек по одной
   maxPointInAdr: integer;
-  //переменная для вычисления смещения для аналоговых каналов
-  offsetForYalkAnalog: short;
-  offsetForYalkTemp: short;
-  offsetForYalkContact: short;
-  offsetForYalkFastParamT22: short;
-  offsetForYalkFastParamT21: short;
-  offsetForYalkFastParamT24: short;
 begin
   //вычисляем количество точек в пришедшем адресе
   maxPointInAdr := 0;
@@ -3895,49 +4139,29 @@ begin
   //вывод производится только если вкладка аналоговых и контактных каналов активна
   if form1.PageControl1.ActivePageIndex = 0 then
   begin
-
     //вывод для аналоговых каналов   0
     if typeOfAddres = 0 then
     begin
-      //вывод первой точки в массиве firstPointValue для текущего адреса
-      //необходимо учитывать смещение для отображения за 1 проход адреса 1 точки
-      //вычисление смещения, для каждого типа адреса будет свое смещение
-      offsetForYalkAnalog := outStep * (numOutPoint - 1);
-      //вычисление номера текущей выводимой точки
-      nPoint := firstPointValue + offsetForYalkAnalog;
-      //так как массив группы с 0
-      nPoint := nPoint{ - 1};
-      //вывод на диа
-      form1.diaSlowAnl.Series[0].AddXY(numChanel, masGroup[nPoint] shr 1);
-      //увеличение счетчика выводимой точки адреса
-      inc(numOutPoint);
-      //проверяем не вышли ли мы за максимальный диапазон для текущего адреса
-      if numOutPoint > maxPointInAdr then
-      begin
-        numOutPoint := 1;
-      end;
-      //счетчик подсчета количества аналоговых адресов
-      inc(analogAdrCount);
+      outToDiaAnl(outStep,numOutPoint,firstPointValue,numChanel,maxPointInAdr);
     end;
 
     //вывод для контактных каналов     1
     if typeOfAddres = 1 then
     begin
-      offsetForYalkContact := outStep * (numOutPoint - 1);
-      nPoint := firstPointValue + offsetForYalkContact;
-      //так как массив группы с 0
-      nPoint := nPoint {- 1};
-      contVal := OutputValueForBit(masGroup[nPoint], numBitOfValue);
-      form1.diaSlowCont.Series[0].AddXY(numChanel - analogAdrCount, contVal);
-      inc(numOutPoint);
-      if numOutPoint > maxPointInAdr then
+      if (flagGroup) then
       begin
-        numOutPoint := 1;
+        //необходимо вынимать слова из конкретных групп
+
+      end
+      else if (flagCikl) then
+      begin
+        //необходимо вынимать слова из конкретных циклов
+      end
+      else
+      begin
+        //вывод происходит в рамках одной группы
+        outToDiaCont(outStep,numOutPoint,firstPointValue,numChanel,numBitOfValue,maxPointInAdr);
       end;
-      //счетчик подсчета количества контактных адресов
-      inc(contactAdrCount);
-      //SaveBitToLog(IntToStr(numChanel-20));
-      //if numChanel-20=8 then form1.gistCont.Series[0].Clear;
     end;
   end;
 
@@ -3948,67 +4172,57 @@ begin
     //вывод для быстрых параметров   T22
     if typeOfAddres = 2 then
     begin
-      //вычисление смещения для вынимания каждый раз следующей
-      //точки для данного анализируемого адреса
-      //смещение в записи этого адреса будет запоминатся
-      offsetForYalkFastParamT22 := outStep * (numOutPoint - 1);
-      nPoint := firstPointValue + offsetForYalkFastParamT22;
-      //так как массив группы с 0
-      nPoint := nPoint{ - 1};
-      //собираем и выводим первое слово T22
-      fastValT22 := BuildFastValueT22(masGroupAll[nPoint], numBitOfValue);
-      try
-        form1.fastDia.Series[0].AddXY(numChanel, fastValT22 {rrr});
-      except
-        //ShowMessage('111');
-      end;
-      inc(numOutPoint);
-      if numOutPoint > maxPointInAdr then
+      if (flagGroup) then
       begin
-        numOutPoint := 1;
+        //необходимо вынимать слова из конкретных групп
+
+      end
+      else if (flagCikl) then
+      begin
+        //необходимо вынимать слова из конкретных циклов
+      end
+      else
+      begin
+        //вывод происходит в рамках одной группы
+        outToDiaFastT22(outStep,numOutPoint,firstPointValue,numChanel,numBitOfValue,maxPointInAdr);
       end;
     end;
 
     //вывод для быстрых параметров   T21
     if typeOfAddres = 3 then
     begin
-      //вычисление смещения для вынимания каждый раз следующей
-      //точки для данного анализируемого адреса
-      //смещение в записи этого адреса будет запоминатся
-      offsetForYalkFastParamT21 := outStep * (numOutPoint - 1);
-      nPoint := firstPointValue + offsetForYalkFastParamT21;
-      //так как массив группы с 0
-      nPoint := nPoint {- 1};
-      fastValT21 := masGroup[nPoint] shr 3; //8 разрядов
-      try
-        form1.fastDia.Series[0].AddXY(numChanel, fastValT21);
-      except
-        //ShowMessage('222');
-      end;
-      inc(numOutPoint);
-      if numOutPoint > maxPointInAdr then
+      if (flagGroup) then
       begin
-        numOutPoint := 1;
+        //необходимо вынимать слова из конкретных групп
+
+      end
+      else if (flagCikl) then
+      begin
+        //необходимо вынимать слова из конкретных циклов
+      end
+      else
+      begin
+        //вывод происходит в рамках одной группы
+        outToDiaFastT21(outStep,numOutPoint,firstPointValue,numChanel,numBitOfValue,maxPointInAdr);
       end;
     end;
 
     //вывод для быстрых параметров   T24
     if typeOfAddres = 5 then
     begin
-      offsetForYalkFastParamT24 := outStep * (numOutPoint - 1);
-      nPoint := firstPointValue + offsetForYalkFastParamT24;
-      nPoint := nPoint {- 1};
-      //form1.Memo1.Lines.Add(intToStr(nPoint));
-      fastValT24 := BuildFastValueT24(masGroupAll[nPoint], numBitOfValue);
-      try
-        form1.fastDia.Series[0].AddXY(numChanel, fastValT24);
-      except
-        //ShowMessage('111');
-      end;
-      inc(numOutPoint);
-      if numOutPoint > maxPointInAdr then
+      if (flagGroup) then
       begin
-        numOutPoint := 1;
+        //необходимо вынимать слова из конкретных групп
+
+      end
+      else if (flagCikl) then
+      begin
+        //необходимо вынимать слова из конкретных циклов
+      end
+      else
+      begin
+        //вывод происходит в рамках одной группы
+        outToDiaFastT24(outStep,numOutPoint,firstPointValue,numChanel,numBitOfValue,maxPointInAdr);
       end;
     end;
   end;
@@ -4025,25 +4239,20 @@ begin
     //вывод для температурных каналов   7
     if typeOfAddres = 7 then
     begin
-      //вывод первой точки в массиве firstPointValue для текущего адреса
-      //необходимо учитывать смещение для отображения за 1 проход адреса 1 точки
-      //вычисление смещения, для каждого типа адреса будет свое смещение
-      offsetForYalkTemp := outStep * (numOutPoint - 1);
-      //вычисление номера текущей выводимой точки
-      nPoint := firstPointValue + offsetForYalkTemp;
-      //так как массив группы с 0
-      nPoint := nPoint{ - 1};
-      //вывод на диа
-      form1.tempDia.Series[0].AddXY(numChanel, masGroup[nPoint] shr 1);
-      //увеличение счетчика выводимой точки адреса
-      inc(numOutPoint);
-      //проверяем не вышли ли мы за максимальный диапазон для текущего адреса
-      if numOutPoint > maxPointInAdr then
+      if (flagGroup) then
       begin
-        numOutPoint := 1;
+        //необходимо вынимать слова из конкретных групп
+
+      end
+      else if (flagCikl) then
+      begin
+        //необходимо вынимать слова из конкретных циклов
+      end
+      else
+      begin
+        //вывод происходит в рамках одной группы
+        outToDiaTemp(outStep,numOutPoint,firstPointValue,numChanel,numBitOfValue,maxPointInAdr);
       end;
-      //счетчик подсчета количества аналоговых адресов
-      inc(tempAdrCount);
     end;
   end;
 end;
@@ -4853,12 +5062,79 @@ begin
     //M16
     if infStrInt = 16 then
     begin
-      masElemParam[imasElemParam].numOutElemG := pBeginOffset + 2 * offset;
+      if  ((pBeginOffset + 2 * offset)>(masGroupSize*32)) then
+      begin
+        //в цикле
+        fElemC:=pBeginOffset + 2 * offset;
+        //узнаем номер первого цикла
+        iCikl:=Trunc(fElemC/(masGroupSize*32));
+        //проверим в какой группе
+        if (fElemC-(iCikl*(masGroupSize*32)))>masGroupSize then
+        begin
+          fElemGr:=fElemC-(iCikl*(masGroupSize*32));
+          iGr:=Trunc(fElemGr/masGroupSize);
+          //узнаем номер элемента в первой группе
+          masElemParam[imasElemParam].numOutElemG:=fElemGr-(iGr*masGroupSize);
+        end
+        else
+        begin
+          //узнаем номер элемента в первой группе
+          masElemParam[imasElemParam].numOutElemG:=fElemC-(iCikl*(masGroupSize*32));
+        end;
+      end
+      else if  ((pBeginOffset + 2 * offset)>masGroupSize) then
+      begin
+        //в группе
+        fElemGr:=pBeginOffset + 2 * offset;
+        //узнаем номер первой группы
+        iGr:=Trunc(fElem/masGroupSize);
+        //узнаем номер элемента в первой группе
+        masElemParam[imasElemParam].numOutElemG:=fElemGr-(iGr*masGroupSize);
+      end
+      else
+      begin
+        //в каждой группе каждого цикла
+        masElemParam[imasElemParam].numOutElemG := pBeginOffset + 2 * offset;
+      end;
+
     end
     //остальные
     else
     begin
-      masElemParam[imasElemParam].numOutElemG := pBeginOffset + offset;
+      if  ((pBeginOffset + offset)>(masGroupSize*32)) then
+      begin
+        //в цикле
+        fElemC:=pBeginOffset + offset;
+        //узнаем номер первого цикла
+        iCikl:=Trunc(fElemC/(masGroupSize*32));
+        //проверим в какой группе
+        if (fElemC-(iCikl*(masGroupSize*32)))>masGroupSize then
+        begin
+          fElemGr:=fElemC-(iCikl*(masGroupSize*32));
+          iGr:=Trunc(fElemGr/masGroupSize);
+          //узнаем номер элемента в первой группе
+          masElemParam[imasElemParam].numOutElemG:=fElemGr-(iGr*masGroupSize);
+        end
+        else
+        begin
+          //узнаем номер элемента в первой группе
+          masElemParam[imasElemParam].numOutElemG:=fElemC-(iCikl*(masGroupSize*32));
+        end;
+      end
+      else if  ((pBeginOffset + offset)>masGroupSize) then
+      begin
+        //в группе
+        fElemGr:=pBeginOffset + offset;
+        //узнаем номер первой группы
+        iGr:=Trunc(fElem/masGroupSize);
+        //узнаем номер элемента в первой группе
+        masElemParam[imasElemParam].numOutElemG:=fElemGr-(iGr*masGroupSize);
+      end
+      else
+      begin
+        //в каждой группе каждого цикла
+        masElemParam[imasElemParam].numOutElemG := pBeginOffset + offset;
+      end;
     end;
 
     //выставляем шаг для выборки след. точки в завис. от информативности адреса
@@ -4884,6 +5160,7 @@ begin
         masElemParam[imasElemParam].stepOutG := round(stepOutGins / 8);
       end;
     end;
+
 
     //установим по умолчанию значение текущей
     //выводимой точки в 1 для всех адресов
@@ -5889,6 +6166,7 @@ begin
       end;
       //SaveBitToLog(' Фраза№ '+IntToStr(fraseCount));
     end;
+
     //сбор слова со старшего бита
     simbCount := SIMBOLINWORD - 1;
     while simbCount >= 0 do
@@ -5910,6 +6188,7 @@ begin
       end;
       dec(simbCount);
     end;
+
     //сбор маркера номера группы
     //7 разрядное значение со старшего к младшему
     if (((fraseCount=2)or(fraseCount=4)or(fraseCount=6)or(fraseCount=8)or
@@ -5925,13 +6204,14 @@ begin
         bufNumGroup := (bufNumGroup shl 1) + 0;
       end;
     end;
+
     if wordCount = {9}StrToInt(orbInf[3])+1 then
       //если фраза четная в 1 слове смотрим 12 бит для сбора маркера группы и цикла
       //8 разрядов. МГ 01110010. МЦ 10001101
     begin
       Inc(countEvenFraseMGToMG);
 
-      //12 бит
+      //проверяем 12 бит
       if ((wordBuf and $800) <> 0) then
       begin
         bufMarkGroup := (bufMarkGroup shl 1) + 1;
