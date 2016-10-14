@@ -348,7 +348,10 @@ type
     codStr: word;
     //счетчик номера слова Орбиты
     wordNum: integer;
+    //счетчик номера группы
     groupNum:integer;
+    //счетчик номера цикла
+    ciklNum:Integer;
     //счетчик групп
     groupWordCount: integer;
     //счетчик фраз
@@ -464,6 +467,16 @@ type
     //счетчик ошибок поиска маркера группы за 100 раз
     countErrorMG:Integer;
 
+    //функции для проверки соответствует текущая группа или цикл нужной
+    function isInGroup(grNum:integer;addrNum:integer):Boolean;
+    function isInCikl(ciklNum:integer;addrNum:integer):Boolean;
+
+    //вывод на диаграмму температурных
+    procedure outToDiaForTemp(firstPointValue: integer;outStep: integer;
+      masOutSize: integer; var numChanel: integer;typeOfAddres: short;
+        numBitOfValue: short;var numOutPoint: short;flagGroup:Boolean;flagCikl:Boolean);
+    procedure FillCiklArr(iArrElemPar:Integer;var fNum:Integer;var stepNum:Integer);
+    procedure FillGroupArr(iArrElemPar:Integer;var fNum:Integer;var stepNum:Integer);
     procedure OutMF(errMF:Integer);
     procedure OutMG(errMG:Integer);
     //проверка наличия нужного колич единиц маркера фразы
@@ -681,6 +694,8 @@ var
   acumAnalog: integer;
   //колич. температурных каналов
   acumTemp:Integer;
+  //счетчик выведенных темп. параметров
+  outTempAdr:Integer;
   //кол. контактных
   acumContact: integer;
   //кол. быстрых
@@ -854,23 +869,42 @@ end;
 
 procedure Tacp.ShowThreadErrorMessage;
 begin
+//  case ReadThreadErrorNumber of
+//    $0: ;
+//    $1: showMessage(' ADC Thread: STOP_ADC() --> Bad! :(((');
+//    $2: showMessage(' ADC Thread: ReadData() --> Bad :(((');
+//    $3: showMessage(' ADC Thread: Waiting data Error! :(((');
+//    // если программа была злобно прервана, предъявим ноту протеста
+//    $4: showMessage(' ADC Thread: The program was terminated! :(((');
+//    $5: showMessage(' ADC Thread: Writing data file error! :(((');
+//    $6: showMessage(' ADC Thread: START_ADC() --> Bad :(((');
+//    $7: showMessage(' ADC Thread: GET_DATA_STATE() --> Bad :(((');
+//    $8: showMessage(' ADC Thread: BUFFER OVERRUN --> Bad :(((');
+//    $9: showMessage(' ADC Thread: Can''t cancel' +
+//         ' pending input and output (I/O) operations! :(((');
+//    $10: showMessage('Ошибка! Порог не определен!');
+//
+//    else
+//      showMessage(' ADC Thread: Unknown error! :(((');
+//  end;
+
   case ReadThreadErrorNumber of
     $0: ;
-    $1: showMessage(' ADC Thread: STOP_ADC() --> Bad! :(((');
-    $2: showMessage(' ADC Thread: ReadData() --> Bad :(((');
-    $3: showMessage(' ADC Thread: Waiting data Error! :(((');
+    $1: Form1.Memo1.Lines.Add(' ADC Thread: STOP_ADC() --> Bad! :(((');
+    $2: Form1.Memo1.Lines.Add(' ADC Thread: ReadData() --> Bad :(((');
+    $3: Form1.Memo1.Lines.Add(' ADC Thread: Waiting data Error! :(((');
     // если программа была злобно прервана, предъявим ноту протеста
-    $4: showMessage(' ADC Thread: The program was terminated! :(((');
-    $5: showMessage(' ADC Thread: Writing data file error! :(((');
-    $6: showMessage(' ADC Thread: START_ADC() --> Bad :(((');
-    $7: showMessage(' ADC Thread: GET_DATA_STATE() --> Bad :(((');
-    $8: showMessage(' ADC Thread: BUFFER OVERRUN --> Bad :(((');
-    $9: showMessage(' ADC Thread: Can''t cancel' +
+    $4: Form1.Memo1.Lines.Add(' ADC Thread: The program was terminated! :(((');
+    $5: Form1.Memo1.Lines.Add(' ADC Thread: Writing data file error! :(((');
+    $6: Form1.Memo1.Lines.Add(' ADC Thread: START_ADC() --> Bad :(((');
+    $7: Form1.Memo1.Lines.Add(' ADC Thread: GET_DATA_STATE() --> Bad :(((');
+    $8: Form1.Memo1.Lines.Add(' ADC Thread: BUFFER OVERRUN --> Bad :(((');
+    $9: Form1.Memo1.Lines.Add(' ADC Thread: Can''t cancel' +
          ' pending input and output (I/O) operations! :(((');
-    $10: showMessage('Ошибка! Порог не определен!');
+    $10: Form1.Memo1.Lines.Add('Ошибка! Порог не определен!');
 
     else
-      showMessage(' ADC Thread: Unknown error! :(((');
+      Form1.Memo1.Lines.Add(' ADC Thread: Unknown error! :(((');
   end;
 end;
 //==============================================================================
@@ -2404,7 +2438,26 @@ begin
               jG := jG + 2;
             end;
             //собрали запупустили вывод на диаграммы
-            form1.TimerOutToDia.Enabled := true;
+
+            if (form1.PageControl1.ActivePageIndex = 3) then
+            begin
+              //если активна вкладка температурных параметров
+              //то на гистограмму выводим все точки
+              data.OutToDiaForTemp(
+                masElemParam[orbAdrCount].numOutElemG,
+                masElemParam[orbAdrCount].stepOutG,
+                masGroupSize,orbAdrCount,
+                masElemParam[orbAdrCount].adressType,
+                masElemParam[orbAdrCount].bitNumber,
+                masElemParam[orbAdrCount].numOutPoint,
+                masElemParam[orbAdrCount].flagGroup,
+                masElemParam[orbAdrCount].flagCikl);
+            end
+            else
+            begin
+              form1.TimerOutToDia.Enabled := true;
+            end;
+
             //вывод на графики. Общая процедура.
             data.OutToGistGeneral;
           end;
@@ -2448,7 +2501,16 @@ begin
               jG := jG + 2;
             end;
             //собрали запупустили вывод на диаграммы
-            form1.TimerOutToDia.Enabled := true;
+            if (form1.PageControl1.ActivePageIndex = 3) then
+            begin
+              //если активна вкладка температурных параметров
+              //то на гистограмму выводим все точки
+              data.OutToDiaForTemp;
+            end
+            else
+            begin
+              form1.TimerOutToDia.Enabled := true;
+            end;
             //вывод на графики. Общая процедура.
             data.OutToGistGeneral;
           end;
@@ -2491,7 +2553,16 @@ begin
               jG := jG + 2;
             end;
             //собрали запупустили вывод на диаграммы
-            form1.TimerOutToDia.Enabled := true;
+            if (form1.PageControl1.ActivePageIndex = 3) then
+            begin
+              //если активна вкладка температурных параметров
+              //то на гистограмму выводим все точки
+              data.OutToDiaForTemp;
+            end
+            else
+            begin
+              form1.TimerOutToDia.Enabled := true;
+            end;
             //вывод на графики. Общая процедура.
             data.OutToGistGeneral;
           end;
@@ -2534,7 +2605,16 @@ begin
               jG := jG + 2;
             end;
             //собрали запупустили вывод на диаграммы
-            form1.TimerOutToDia.Enabled := true;
+            if (form1.PageControl1.ActivePageIndex = 3) then
+            begin
+              //если активна вкладка температурных параметров
+              //то на гистограмму выводим все точки
+              data.OutToDiaForTemp;
+            end
+            else
+            begin
+              form1.TimerOutToDia.Enabled := true;
+            end;
             //вывод на графики. Общая процедура.
             data.OutToGistGeneral;
           end;
@@ -2577,7 +2657,16 @@ begin
               jG := jG + 2;
             end;
             //собрали запупустили вывод на диаграммы
-            form1.TimerOutToDia.Enabled := true;
+            if (form1.PageControl1.ActivePageIndex = 3) then
+            begin
+              //если активна вкладка температурных параметров
+              //то на гистограмму выводим все точки
+              data.OutToDiaForTemp;
+            end
+            else
+            begin
+              form1.TimerOutToDia.Enabled := true;
+            end;
             //вывод на графики. Общая процедура.
             data.OutToGistGeneral;
           end;
@@ -2589,7 +2678,11 @@ begin
       if stream.Position >= stream.Size then
       begin
         form1.TimerPlayTlm.Enabled := false;
-        form1.TimerOutToDia.Enabled := false;
+
+        if (form1.PageControl1.ActivePageIndex <> 3) then
+        begin
+          form1.TimerOutToDia.Enabled := false;
+        end;
         i := countBlock + 1;
         form1.diaSlowAnl.Series[0].Clear;
         form1.diaSlowCont.Series[0].Clear;
@@ -2896,6 +2989,7 @@ procedure TForm1.TimerOutToDiaTimer(Sender: TObject);
 var
   orbAdrCount: integer;
 begin
+  //form1.Memo1.Lines.Add('Таймер!:');
   //осуществление разбора очередной строки адреса.
   orbAdrCount := 0;
   //счетчик для подсчета количества аналоговых каналов
@@ -2908,20 +3002,28 @@ begin
   form1.diaSlowAnl.Series[0].Clear;
   form1.diaSlowCont.Series[0].Clear;
   form1.fastDia.Series[0].Clear;
-  form1.tempDia.Series[0].Clear;
+  if outTempAdr=acumTemp then
+  begin
+    form1.tempDia.Series[0].Clear;
+    outTempAdr:=0;
+  end;
+
   //sleep(3);
   //последовательно разбираем строка за строкой адреса
   //Орбиты, вынимаем нужные значения и выводим на график
   while orbAdrCount <= iCountMax - 1 do // iCountMax-1
   begin
-    data.outToDia(masElemParam[orbAdrCount].numOutElemG,
-      masElemParam[orbAdrCount].stepOutG, {length(masGroup)}masGroupSize, //Остановка11
-      orbAdrCount, masElemParam[orbAdrCount].adressType,
+    data.outToDia(
+      masElemParam[orbAdrCount].numOutElemG,
+      masElemParam[orbAdrCount].stepOutG,
+      masGroupSize,orbAdrCount,
+      masElemParam[orbAdrCount].adressType,
       masElemParam[orbAdrCount].bitNumber,
       masElemParam[orbAdrCount].numBusThread,
       masElemParam[orbAdrCount].adrBus,
       masElemParam[orbAdrCount].numOutPoint,
-      masElemParam[orbAdrCount].flagGroup,masElemParam[orbAdrCount].flagCikl);
+      masElemParam[orbAdrCount].flagGroup,
+      masElemParam[orbAdrCount].flagCikl);
     inc(orbAdrCount);
   end;
   form1.TimerOutToDia.Enabled := false;
@@ -2937,11 +3039,12 @@ end;
 
 constructor Tdata.CreateData;
 begin
+  outTempAdr:=0;
   countForMG:=0;
   countErrorMG:=0;
   countEvenFraseMGToMG:=0;
   groupNum:=1;
-
+  ciklNum:=1;
   groupWordCount:=1; //!!
 
   countForMF:=0;
@@ -3141,10 +3244,96 @@ begin
 end;
 //==============================================================================
 
+
+
 //==============================================================================
-//
+//Вывод на диаграмму температурных
+//==============================================================================
+procedure TData.outToDiaForTemp(firstPointValue: integer;outStep: integer;
+  masOutSize: integer; var numChanel: integer;typeOfAddres: short;
+  numBitOfValue: short;var numOutPoint: short;flagGroup:Boolean;flagCikl:Boolean);
+var
+  nPoint: integer;
+  //переменная для вычисления количества
+  //точек для каждого нового приходящего адреса
+  //переменная вспомогательная и нужна для организации
+  //цикличности вывода точек по одной
+  maxPointInAdr: integer;
+
+  orbAdrCount: integer;
+begin
+  //вывод для температурных параметров
+  if form1.PageControl1.ActivePageIndex = 3 then
+  begin
+    orbAdrCount := 0;
+    //счетчик для подсчета количества аналоговых каналов
+    data.tempAdrCount := 0;
+    if outTempAdr=acumTemp then
+    begin
+      form1.tempDia.Series[0].Clear;
+      outTempAdr:=0;
+    end;
+
+    while orbAdrCount <= iCountMax - 1 do // iCountMax-1
+    begin
+      //вычисляем количество точек в пришедшем адресе
+      maxPointInAdr := 0;
+      nPoint := firstPointValue;
+      while nPoint <= masOutSize do
+      begin
+        inc(maxPointInAdr);
+        nPoint := nPoint + outStep;
+      end;
+
+      //вывод для температурных каналов   7
+      if typeOfAddres = 7 then
+      begin
+        if (flagGroup) then
+        begin
+          //необходимо вынимать слова из конкретных групп
+          if isInGroup(groupNum,numChanel) then
+          begin
+            outToDiaTemp(outStep,numOutPoint,firstPointValue,numChanel,numBitOfValue,maxPointInAdr);
+          end;
+        end
+        else if (flagCikl) then
+        begin
+          if isInCikl(ciklNum,numChanel) then
+          begin
+            //необходимо вынимать слова из конкретных циклов
+            if (flagGroup) then
+            begin
+              //необходимо вынимать слова из конкретных групп
+              if isInGroup(groupNum,numChanel) then
+              begin
+                outToDiaTemp(outStep,numOutPoint,firstPointValue,numChanel,numBitOfValue,maxPointInAdr);
+              end;
+            end
+            else
+            begin
+              outToDiaTemp(outStep,numOutPoint,firstPointValue,numChanel,numBitOfValue,maxPointInAdr);
+            end;
+          end;
+        end
+        else
+        begin
+          //вывод происходит в рамках одной группы
+          outToDiaTemp(outStep,numOutPoint,firstPointValue,numChanel,numBitOfValue,maxPointInAdr);
+        end;
+      end;
+
+      inc(orbAdrCount);
+    end;
+
+
+
+  end;
+end;
 //==============================================================================
 
+//==============================================================================
+//Общая процедура вывода на графики
+//==============================================================================
 procedure TData.OutToGistGeneral;
 begin
   //вывод на график для контактных и аналоговых
@@ -3374,8 +3563,17 @@ procedure TData.OutDate;
 begin
   //сбор слов для Свята //!!!!!
   //FillSwatWord;
-  //включаем таймер для вывода на диаграммы
-  form1.TimerOutToDia.Enabled := true;
+  if (form1.PageControl1.ActivePageIndex = 3) then
+  begin
+    //если активна вкладка температурных параметров
+    //то на гистограмму выводим все точки
+    data.OutToDiaForTemp;
+  end
+  else
+  begin
+    form1.TimerOutToDia.Enabled := true;
+  end;
+  //form1.Memo1.Lines.Add('цикл№:'+intTostr(ciklNum));
   //вывод на графики. Общая процедура.
   OutToGistGeneral;
 end;
@@ -3422,11 +3620,18 @@ begin
           //1 в 1 бите 1 слова 16 фразы 1 группы
           if ((wordNum = 1)and(fraseNum=16)and(groupNum=1))then
           begin
-            if ((codStr and 1) = 1) then
+            if ((codStr and {1}2048) = {1}2048) then
             begin
               //маркер кадра найден
-              bufNumGroup:=0;
-              
+              //bufNumGroup:=0;
+              ciklNum:=1;
+              //form1.Memo1.Lines.Add('Кадр!');
+              //Writeln(textTestFile,'Кадр!');
+              //Writeln(textTestFile,' |');
+              //Writeln(textTestFile,' v');
+              //Writeln(textTestFile,'!!Цикл 1');
+              //Writeln(textTestFile,' |');
+              //Writeln(textTestFile,' v');
             end
             else
             begin
@@ -3440,6 +3645,7 @@ begin
             SaveBitToLog('Фраза 126:'+codStr);
            end;}
           //SaveBitToLog('Фраза №'+IntToStr(fraseNum)+' ');
+          //Writeln(textTestFile,'Фраза№:'+intTostr(fraseNum));
           if fraseNum = 1 then
           begin
             //нумеруем с 1 т.к массив группы с 1
@@ -3483,6 +3689,11 @@ begin
               begin
                 //Form1.Memo1.Lines.Add(IntToStr(countEvenFraseMGToMG)+' МГ'); //TO-DO <><><>
                 Inc(countForMG);
+
+                //form1.Memo1.Lines.Add('Группа№:'+intTostr(groupNum));
+                //Writeln(textTestFile,' ^');
+                //Writeln(textTestFile,' |');
+                //Writeln(textTestFile,'Группа№:'+intTostr(groupNum));
                 Inc(groupNum);
                 if groupNum=33 then
                 begin
@@ -3519,7 +3730,20 @@ begin
               begin
                 //Form1.Memo1.Lines.Add(IntToStr(countEvenFraseMGToMG)+' МЦ');
                 countEvenFraseMGToMG:=0;
-                groupNum:=32;
+                //Writeln(textTestFile,' ^');
+                //Writeln(textTestFile,' |');
+                //Writeln(textTestFile,'Группа№:'+intTostr(groupNum));
+                groupNum:={32}1;
+                //form1.Memo1.Lines.Add('цикл№:'+intTostr(ciklNum));
+                //Writeln(textTestFile,' ^');
+                //Writeln(textTestFile,' |');
+                //Writeln(textTestFile,'цикл№:'+intTostr(ciklNum));
+                Inc(ciklNum);
+                if ciklNum=5 then
+                begin
+                  ciklNum:=1;
+                end;
+
                 //SaveBitToLog('Номер группы '+'32');
                 flBeg := false;
                 if (tlm.flagWriteTLM) then
@@ -3550,6 +3774,8 @@ begin
         begin
           myFraseNum := 1;
         end;
+        //form1.Memo1.Lines.Add('фраза№:'+intTostr(fraseNum));
+        //Writeln(textTestFile,'Фраза№:'+intTostr(fraseNum));
         inc(fraseNum);
         //проверяем нумерацию фраз,
         //для того чтобы не выйти за границы.
@@ -3580,7 +3806,7 @@ begin
         begin
           //Form1.Memo1.Lines.Add();
 
-          OutDate;
+          OutDate;   ///!!!
         end;
       end;
       codStr := 0;
@@ -3596,7 +3822,11 @@ begin
     //в случаем принуд. оконч. работы с АЦП выйти из выполнения
     if (flagEnd) then
     begin
-      form1.TimerOutToDia.Enabled := false;
+      if (form1.PageControl1.ActivePageIndex <> 3) then
+      begin
+        form1.TimerOutToDia.Enabled:=False;
+      end;
+
       graphFlagSlowP := false;
 
       graphFlagFastP:= false;
@@ -4097,8 +4327,12 @@ begin
   //так как массив группы с 0
   nPoint := nPoint{ - 1};
   //вывод на диа
-  form1.Memo1.Lines.Add(IntToStr(groupNum));
+  form1.Memo1.Lines.Add('#цикла'+IntToStr(ciklNum)+' №группы:'+IntToStr(groupNum)+
+    ' номер канала:'+IntToStr(numChanel)+' содержимое канала:'+
+      IntToStr(masGroup[nPoint] shr 1));
   form1.tempDia.Series[0].AddXY(numChanel, masGroup[nPoint] shr 1);
+  //увеличим счетчик выведенных темп. параметров
+  Inc(outTempAdr);
   //увеличение счетчика выводимой точки адреса
   inc(numOutPoint);
   //проверяем не вышли ли мы за максимальный диапазон для текущего адреса
@@ -4110,6 +4344,57 @@ begin
   inc(tempAdrCount);
 end;
 //==============================================================================
+
+//==============================================================================
+//Есть ли переданный номер группы в массиве групп из которых должна произодится выборка
+//==============================================================================
+function TData.isInGroup(grNum:integer;addrNum:integer):Boolean;
+var
+  i:Integer;
+  maxArrElem:Integer;
+  flagS:Boolean;
+begin
+  flagS:=false;
+  i:=0;
+  maxArrElem:=Length(masElemParam[addrNum].arrNumGroup);
+  while i<maxArrElem do
+  begin
+    if masElemParam[addrNum].arrNumGroup[i]=grNum then
+    begin
+      flagS:=true;
+      Break;
+    end;
+    Inc(i);
+  end;
+  result:=flagS;
+end;
+//==============================================================================
+
+//==============================================================================
+//Есть ли переданный номер цикла в массиве цикла из которых должна произодится выборка
+//==============================================================================
+function TData.isInCikl(ciklNum:integer;addrNum:integer):Boolean;
+var
+  i:Integer;
+  maxArrElem:Integer;
+  flagS:Boolean;
+begin
+  flagS:=false;
+  i:=0;
+  maxArrElem:=Length(masElemParam[addrNum].arrNumCikl);
+  while i<maxArrElem do
+  begin
+    if masElemParam[addrNum].arrNumCikl[i]=ciklNum then
+    begin
+      flagS:=true;
+      Break;
+    end;
+    Inc(i);
+  end;
+  result:=flagS;
+end;
+//==============================================================================
+
 
 
 //=============================================================================
@@ -4142,7 +4427,24 @@ begin
     //вывод для аналоговых каналов   0
     if typeOfAddres = 0 then
     begin
-      outToDiaAnl(outStep,numOutPoint,firstPointValue,numChanel,maxPointInAdr);
+      if (flagGroup) then
+      begin
+        //необходимо вынимать слова из конкретных групп
+
+      end
+      else if (flagCikl) then
+      begin
+        //необходимо вынимать слова из конкретных циклов
+        if (flagGroup) then
+        begin
+          //необходимо вынимать слова из конкретных групп
+        end;
+      end
+      else
+      begin
+        //вывод происходит в рамках одной группы
+        outToDiaAnl(outStep,numOutPoint,firstPointValue,numChanel,maxPointInAdr);
+      end;
     end;
 
     //вывод для контактных каналов     1
@@ -4156,6 +4458,10 @@ begin
       else if (flagCikl) then
       begin
         //необходимо вынимать слова из конкретных циклов
+        if (flagGroup) then
+        begin
+          //необходимо вынимать слова из конкретных групп
+        end;
       end
       else
       begin
@@ -4180,6 +4486,10 @@ begin
       else if (flagCikl) then
       begin
         //необходимо вынимать слова из конкретных циклов
+        if (flagGroup) then
+        begin
+          //необходимо вынимать слова из конкретных групп
+        end;
       end
       else
       begin
@@ -4199,6 +4509,10 @@ begin
       else if (flagCikl) then
       begin
         //необходимо вынимать слова из конкретных циклов
+        if (flagGroup) then
+        begin
+          //необходимо вынимать слова из конкретных групп
+        end;
       end
       else
       begin
@@ -4218,6 +4532,10 @@ begin
       else if (flagCikl) then
       begin
         //необходимо вынимать слова из конкретных циклов
+        if (flagGroup) then
+        begin
+          //необходимо вынимать слова из конкретных групп
+        end;
       end
       else
       begin
@@ -4230,30 +4548,6 @@ begin
   //вывод для БУС
   if form1.PageControl1.ActivePageIndex = 2 then
   begin
-  end;
-
-
-  //вывод для температурных параметров
-  if form1.PageControl1.ActivePageIndex = 3 then
-  begin
-    //вывод для температурных каналов   7
-    if typeOfAddres = 7 then
-    begin
-      if (flagGroup) then
-      begin
-        //необходимо вынимать слова из конкретных групп
-
-      end
-      else if (flagCikl) then
-      begin
-        //необходимо вынимать слова из конкретных циклов
-      end
-      else
-      begin
-        //вывод происходит в рамках одной группы
-        outToDiaTemp(outStep,numOutPoint,firstPointValue,numChanel,numBitOfValue,maxPointInAdr);
-      end;
-    end;
   end;
 end;
 
@@ -4302,7 +4596,7 @@ procedure TData.OutToGistTemp(firstPointValue: integer; outStep: integer;
 var
   iPoint: integer;
 begin
-  //выводим на гист когда активна вкладка аналог. медл.
+  //выводим на гист когда активна вкладка температурных
   if (form1.PageControl1.ActivePageIndex = 3) then
   begin
     iPoint := firstPointValue;
@@ -4762,6 +5056,111 @@ end;
 //==============================================================================
 
 //==============================================================================
+//Заполнение массива номеров циклов
+//==============================================================================
+procedure Tdata.FillCiklArr(iArrElemPar:Integer;var fNum:Integer;var stepNum:Integer);
+const
+  MAXCIKLNUM=4;
+var
+  fNumCikl:Integer;
+  sNumCikl:Integer;
+  fElemC:Integer;
+  sElemC:Integer;
+  i:Integer;
+  iC:Integer;
+  fElemGr:Integer;
+  sElemGr:Integer;
+begin
+  masElemParam[iArrElemPar].flagCikl:=True;
+  i:=0;
+  fElemC:=fNum;
+  //узнаем номер первого цикла
+  fNumCikl:=Trunc(fElemC/(masGroupSize*32))+1;
+  //если первый элемент находится не в первом цикле,
+  //то посчитаем номер цикла и начнем отталкиваться от его начала
+  if fElemC>masGroupSize*32 then
+  begin
+    fNum:=fElemC-((fNumCikl-1)*masGroupSize*32);
+  end;
+
+
+  sElemC:=stepNum;
+  //смещение до след цикла
+  sNumCikl:=Trunc(sElemC/(masGroupSize*32));
+  iC:=fNumCikl;
+  SetLength(masElemParam[iArrElemPar].arrNumCikl,i+1);
+  masElemParam[iArrElemPar].arrNumCikl[i]:=iC;
+  Inc(i);
+  iC:=iC+sNumCikl;
+  //заполняем номера из расчета что максимальный номер цикла 4
+  while iC<=MAXCIKLNUM do
+  begin
+    SetLength(masElemParam[iArrElemPar].arrNumCikl,i+1);
+    masElemParam[iArrElemPar].arrNumCikl[i]:=iC;
+    iC:=iC+sNumCikl;
+    Inc(i);
+  end;
+
+  fElemGr:=fElemC-((fNumCikl-1)*masGroupSize*32);
+  //sElemGr:=sElemC-((sNumCikl-1)*masGroupSize*32);
+
+  //проверяем надо ли заполнять массив группы
+  if sElemGr>masGroupSize then
+  begin
+    //заполнение массива группы после заполнения массива цикла
+    FillGroupArr(iArrElemPar,fElemGr,sElemGr);
+  end;
+
+end;
+//==============================================================================
+
+//==============================================================================
+//Заполнение массива номеров групп
+//==============================================================================
+procedure Tdata.FillGroupArr(iArrElemPar:Integer;var fNum:Integer;var stepNum:Integer);
+const
+  MAXGROUPNUM=32;
+var
+  i:Integer;
+  iG:Integer;
+  fElemGr:Integer;
+  sElemGr:Integer;
+  fNumGr:Integer;
+  sNumGr:Integer;
+begin
+  masElemParam[iArrElemPar].flagGroup:=True;
+  i:=0;
+  fElemGr:=fNum;
+  //узнаем номер первой группы
+  fNumGr:=Trunc(fElemGr/masGroupSize)+1;
+  //если первый элемент находится не в первой группе,
+  //то посчитаем номер группы и начнем отталкиваться от ее начала
+  if fElemGr>masGroupSize then
+  begin
+    fNum:=fElemGr-((fNumGr-1)*masGroupSize);
+  end;
+
+  sElemGr:=stepNum;
+  //смещение до след группы
+  sNumGr:=Trunc(sElemGr/masGroupSize);
+  iG:=fNumGr;
+  SetLength(masElemParam[iArrElemPar].arrNumGroup,i+1);
+  masElemParam[iArrElemPar].arrNumGroup[i]:=iG;
+  Inc(i);
+  iG:=iG+sNumGr;
+  //заполняем номера из расчета что максимальный номер цикла 4
+  while iG<=MAXGROUPNUM do
+  begin
+    SetLength(masElemParam[iArrElemPar].arrNumGroup,i+1);
+    masElemParam[iArrElemPar].arrNumGroup[i]:=iG;
+    iG:=iG+sNumGr;
+    Inc(i);
+  end;
+end;
+//==============================================================================
+
+
+//==============================================================================
 //Разбор адресов ОрбитыM16
 //==============================================================================
 procedure TData.AdressAnalyser(adressString: string; var imasElemParam: integer);
@@ -5062,7 +5461,7 @@ begin
     //M16
     if infStrInt = 16 then
     begin
-      if  ((pBeginOffset + 2 * offset)>(masGroupSize*32)) then
+      {if  ((pBeginOffset + 2 * offset)>(masGroupSize*32)) then
       begin
         //в цикле
         fElemC:=pBeginOffset + 2 * offset;
@@ -5095,13 +5494,13 @@ begin
       begin
         //в каждой группе каждого цикла
         masElemParam[imasElemParam].numOutElemG := pBeginOffset + 2 * offset;
-      end;
-
+      end; }
+      masElemParam[imasElemParam].numOutElemG := pBeginOffset + 2 * offset;
     end
     //остальные
     else
     begin
-      if  ((pBeginOffset + offset)>(masGroupSize*32)) then
+      {if  ((pBeginOffset + offset)>(masGroupSize*32)) then
       begin
         //в цикле
         fElemC:=pBeginOffset + offset;
@@ -5134,7 +5533,8 @@ begin
       begin
         //в каждой группе каждого цикла
         masElemParam[imasElemParam].numOutElemG := pBeginOffset + offset;
-      end;
+      end;}
+      masElemParam[imasElemParam].numOutElemG := pBeginOffset + offset;
     end;
 
     //выставляем шаг для выборки след. точки в завис. от информативности адреса
@@ -5161,6 +5561,18 @@ begin
       end;
     end;
 
+    if  (masElemParam[imasElemParam].stepOutG>(masGroupSize*32)) then
+    begin
+      //смещение больше одного цикла
+      //заполняем массив циклов с номерами циклов из которых надо брать слова
+      FillCiklArr(imasElemParam,masElemParam[imasElemParam].numOutElemG,
+        masElemParam[imasElemParam].stepOutG );
+    end
+    else if (masElemParam[imasElemParam].stepOutG>masGroupSize) then
+    begin
+      FillGroupArr(imasElemParam,masElemParam[imasElemParam].numOutElemG,
+        masElemParam[imasElemParam].stepOutG );
+    end;
 
     //установим по умолчанию значение текущей
     //выводимой точки в 1 для всех адресов
@@ -6334,7 +6746,18 @@ begin
       begin
         iMasGroup := 1;
         //включаем таймер вывода на диаграмму
-        form1.TimerOutToDia.Enabled := true;
+        if (form1.PageControl1.ActivePageIndex = 3) then
+        begin
+          //если активна вкладка температурных параметров
+          //то на гистограмму выводим все точки
+          data.OutToDiaForTemp;
+        end
+        else
+        begin
+          form1.TimerOutToDia.Enabled := true;
+        end;
+
+
         //проверяем собрали ли 97 значений БУС  0..96
         {if (CollectBusArray(iBusArray)) then
           begin
@@ -6361,7 +6784,11 @@ begin
     //!!!
     if (flagEnd) then
     begin
-      form1.TimerOutToDia.Enabled := false;
+      if (form1.PageControl1.ActivePageIndex <> 3) then
+      begin
+        form1.TimerOutToDia.Enabled := false;
+      end;
+
       data.graphFlagSlowP := false;
 
       data.graphFlagTempP := false;
